@@ -228,7 +228,7 @@ public class BrokerController {
                 log.error("Failed to initialize", e);
             }
         }
-        // 从消息存储中加载
+        // 从消息存储中加载 == 》进入查看源码
         result = result && this.messageStore.load();
 
         if (result) {
@@ -310,8 +310,10 @@ public class BrokerController {
             // 注册处理器=》，各种不同的code使用不同的线程池和逻辑类处理
             this.registerProcessor();
 
+            // 初始化延时时间
             final long initialDelay = UtilAll.computeNextMorningTimeMillis() - System.currentTimeMillis();
             final long period = 1000 * 60 * 60 * 24;
+            // 定时任务，计算前一天的消息发送量
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
                 @Override
                 public void run() {
@@ -759,6 +761,7 @@ public class BrokerController {
         } catch (InterruptedException e) {
         }
 
+        // 取消注册该broker
         this.unregisterBrokerAll();
 
         if (this.sendMessageExecutor != null) {
