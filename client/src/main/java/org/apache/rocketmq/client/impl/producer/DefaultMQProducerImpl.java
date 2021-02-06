@@ -110,10 +110,13 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     public void initTransactionEnv() {
+        // 初始化事务消息环境
         TransactionMQProducer producer = (TransactionMQProducer) this.defaultMQProducer;
+        // 如果指定了事务消息线程池，则该线程池当作事务消息回查的线程池
         if (producer.getExecutorService() != null) {
             this.checkExecutor = producer.getExecutorService();
         } else {
+            // 否则创建新的回查线程池和线程池阻塞队列
             this.checkRequestQueue = new LinkedBlockingQueue<Runnable>(producer.getCheckRequestHoldMax());
             this.checkExecutor = new ThreadPoolExecutor(
                 producer.getCheckThreadPoolMinSize(),
@@ -149,9 +152,10 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 if (!this.defaultMQProducer.getProducerGroup().equals(MixAll.CLIENT_INNER_PRODUCER_GROUP)) {
                     this.defaultMQProducer.changeInstanceNameToPID();
                 }
-
+                // 创建mq客户端实例
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQProducer, rpcHook);
 
+                // mq客户端实例存储到本地缓存producerTable中，group - instance
                 boolean registerOK = mQClientFactory.registerProducer(this.defaultMQProducer.getProducerGroup(), this);
                 if (!registerOK) {
                     this.serviceState = ServiceState.CREATE_JUST;
@@ -162,7 +166,9 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
                 this.topicPublishInfoTable.put(this.defaultMQProducer.getCreateTopicKey(), new TopicPublishInfo());
 
+                // 默认为true
                 if (startFactory) {
+                    // mq客户端启动
                     mQClientFactory.start();
                 }
 
@@ -183,6 +189,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
         this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
 
+        // 启动定时任务，扫描过期的请求
         this.timer.scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
@@ -296,6 +303,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                             localTransactionState = transactionCheckListener.checkLocalTransactionState(message);
                         } else if (transactionListener != null) {
                             log.debug("Used new check API in transaction message");
+                            // 如果是事务模式，则执行事务监听器下的check方法，检查本地事务执行状态
                             localTransactionState = transactionListener.checkLocalTransaction(message);
                         } else {
                             log.warn("CheckTransactionState, pick transactionListener by group[{}] failed", group);
@@ -305,6 +313,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                         exception = e;
                     }
 
+                    // 处理事务状态
                     this.processTransactionState(
                         localTransactionState,
                         group,
@@ -330,6 +339,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 }
                 thisHeader.setMsgId(uniqueKey);
                 thisHeader.setTransactionId(checkRequestHeader.getTransactionId());
+                // 判断check方法返回的code,决定是回滚还是提交操作
                 switch (localTransactionState) {
                     case COMMIT_MESSAGE:
                         thisHeader.setCommitOrRollback(MessageSysFlag.TRANSACTION_COMMIT_TYPE);
@@ -352,6 +362,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 }
 
                 try {
+                    // 向broker发送请求，告知该事务消息是需要回滚还是提交，不需要回复
                     DefaultMQProducerImpl.this.mQClientFactory.getMQClientAPIImpl().endTransactionOneway(brokerAddr, thisHeader, remark,
                         3000);
                 } catch (Exception e) {
@@ -360,6 +371,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             }
         };
 
+        // 交由检查线程池异步执行
         this.checkExecutor.submit(request);
     }
 
@@ -823,6 +835,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                         if (timeout < costTimeAsync) {
                             throw new RemotingTooMuchRequestException("sendKernelImpl call timeout");
                         }
+                        // 发送消息到broker
                         sendResult = this.mQClientFactory.getMQClientAPIImpl().sendMessage(
                             brokerAddr,
                             mq.getBrokerName(),
@@ -839,10 +852,12 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                         break;
                     case ONEWAY:
                     case SYNC:
+                        // 同步模式和不返回结果下，判断是否超时，超时直接抛出异常
                         long costTimeSync = System.currentTimeMillis() - beginStartTime;
                         if (timeout < costTimeSync) {
                             throw new RemotingTooMuchRequestException("sendKernelImpl call timeout");
                         }
+                        // 发送消息到broker
                         sendResult = this.mQClientFactory.getMQClientAPIImpl().sendMessage(
                             brokerAddr,
                             mq.getBrokerName(),

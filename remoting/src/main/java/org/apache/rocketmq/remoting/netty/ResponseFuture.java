@@ -17,12 +17,13 @@
 package org.apache.rocketmq.remoting.netty;
 
 import io.netty.channel.Channel;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.rocketmq.remoting.InvokeCallback;
 import org.apache.rocketmq.remoting.common.SemaphoreReleaseOnlyOnce;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ResponseFuture {
     private final int opaque;
@@ -49,6 +50,7 @@ public class ResponseFuture {
     }
 
     public void executeInvokeCallback() {
+        // 判断当前请求是i为异步的，而且是第一次收到返回结果，这是才需要执行本地业务
         if (invokeCallback != null) {
             if (this.executeCallbackOnlyOnce.compareAndSet(false, true)) {
                 invokeCallback.operationComplete(this);
