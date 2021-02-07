@@ -232,9 +232,11 @@ public class BrokerController {
         result = result && this.messageStore.load();
 
         if (result) {
+            // 创建broker服务端netty实例 -- 监听端口为10911
             this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.clientHousekeepingService);
             NettyServerConfig fastConfig = (NettyServerConfig) this.nettyServerConfig.clone();
             fastConfig.setListenPort(nettyServerConfig.getListenPort() - 2);
+            // 创建broker服务端netty实例 -- 监听端口为10909
             this.fastRemotingServer = new NettyRemotingServer(fastConfig, this.clientHousekeepingService);
 
             // 创建发送消息线程池
@@ -294,6 +296,7 @@ public class BrokerController {
                 this.heartbeatThreadPoolQueue,
                 new ThreadFactoryImpl("HeartbeatThread_", true));
 
+            // 创建结束事务消息线程池
             this.endTransactionExecutor = new BrokerFixedThreadPoolExecutor(
                 this.brokerConfig.getEndTransactionThreadPoolNums(),
                 this.brokerConfig.getEndTransactionThreadPoolNums(),
@@ -528,6 +531,9 @@ public class BrokerController {
         }
     }
 
+    /**
+     * 注册对应的code的处理器和处理线程池
+     */
     public void registerProcessor() {
         /**
          * SendMessageProcessor
@@ -546,6 +552,7 @@ public class BrokerController {
         this.fastRemotingServer.registerProcessor(RequestCode.CONSUMER_SEND_MSG_BACK, sendProcessor, this.sendMessageExecutor);
         /**
          * PullMessageProcessor
+         * 消费者拉取消息总是会调用remotingServer，因为PullMessageProcessor只在remotingServer中进行了注册
          */
         this.remotingServer.registerProcessor(RequestCode.PULL_MESSAGE, this.pullMessageProcessor, this.pullMessageExecutor);
         this.pullMessageProcessor.registerConsumeMessageHook(consumeMessageHookList);

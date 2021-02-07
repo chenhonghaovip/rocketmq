@@ -348,6 +348,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
     public RemotingCommand invokeSync(String addr, final RemotingCommand request, long timeoutMillis)
         throws InterruptedException, RemotingConnectException, RemotingSendRequestException, RemotingTimeoutException {
         long beginStartTime = System.currentTimeMillis();
+        // 选择地址addr对应的通道，可能请求统一地址的不同端口，比如10911，10909
         final Channel channel = this.getAndCreateChannel(addr);
         if (channel != null && channel.isActive()) {
             try {
@@ -378,15 +379,17 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
     }
 
     private Channel getAndCreateChannel(final String addr) throws RemotingConnectException, InterruptedException {
+        // 判断地址信息是否为空，只有向NameServer请求时，addr才是空的
         if (null == addr) {
+            // 获取并创建和NameServer的通道
             return getAndCreateNameserverChannel();
         }
-
+        // 从本地缓存中读取该ip:port信息对应的channel包装类，且该channel有效时，返回，否则重新创建连接通道
         ChannelWrapper cw = this.channelTables.get(addr);
         if (cw != null && cw.isOK()) {
             return cw.getChannel();
         }
-
+        // 当本地缓存中不存在该地址对应的通道或者本地缓存的通道失效时，重新创建新的通道
         return this.createChannel(addr);
     }
 
@@ -437,11 +440,12 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
     }
 
     private Channel createChannel(final String addr) throws InterruptedException {
+        // 再次判断本地缓存是否存在且有效
         ChannelWrapper cw = this.channelTables.get(addr);
         if (cw != null && cw.isOK()) {
             return cw.getChannel();
         }
-
+        // 加锁操作，DL双锁检查机制
         if (this.lockChannelTables.tryLock(LOCK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
             try {
                 boolean createNewConnection;
@@ -459,7 +463,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
                 } else {
                     createNewConnection = true;
                 }
-
+                // 如果本地确实不存在或无效时，先删除本地缓存中该地址对应的信息，然后创建通道，创建成功后放入到本地缓存中
                 if (createNewConnection) {
                     ChannelFuture channelFuture = this.bootstrap.connect(RemotingHelper.string2SocketAddress(addr));
                     log.info("createChannel: begin to connect remote host[{}] asynchronously", addr);

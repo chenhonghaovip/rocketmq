@@ -114,7 +114,7 @@ public class BrokerStartup {
 
             nettyClientConfig.setUseTLS(Boolean.parseBoolean(System.getProperty(TLS_ENABLE,
                 String.valueOf(TlsSystemConfig.tlsMode == TlsMode.ENFORCING))));
-            // broker默认端口
+            // broker默认端口  -- broker作为服务方时的监听端口10911
             nettyServerConfig.setListenPort(10911);
             // 消息存储配置
             final MessageStoreConfig messageStoreConfig = new MessageStoreConfig();
@@ -186,6 +186,7 @@ public class BrokerStartup {
                 brokerConfig.setBrokerId(-1);
             }
 
+            // 设置端口为10912
             messageStoreConfig.setHaListenPort(nettyServerConfig.getListenPort() + 1);
             LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
             JoranConfigurator configurator = new JoranConfigurator();
@@ -223,7 +224,7 @@ public class BrokerStartup {
             // remember all configs to prevent discard
             controller.getConfiguration().registerConfig(properties);
 
-            // 初始化控制器=》
+            // 初始化控制器=》创建2个nettyServer,端口分别为10911和10909
             boolean initResult = controller.initialize();
             if (!initResult) {
                 controller.shutdown();

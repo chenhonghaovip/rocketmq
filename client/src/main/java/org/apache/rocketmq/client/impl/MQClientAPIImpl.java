@@ -119,6 +119,7 @@ public class MQClientAPIImpl {
             if (addrs != null) {
                 if (!addrs.equals(this.nameSrvAddr)) {
                     log.info("name server address changed, old=" + this.nameSrvAddr + ", new=" + addrs);
+                    // 更新NameServer地址信息
                     this.updateNameServerAddressList(addrs);
                     this.nameSrvAddr = addrs;
                     return nameSrvAddr;
@@ -133,6 +134,7 @@ public class MQClientAPIImpl {
     public void updateNameServerAddressList(final String addrs) {
         String[] addrArray = addrs.split(";");
         List<String> list = Arrays.asList(addrArray);
+        // 更新NameServer地址信息，缓存本地
         this.remotingClient.updateNameServerAddressList(list);
     }
 

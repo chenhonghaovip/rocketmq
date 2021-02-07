@@ -152,7 +152,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 if (!this.defaultMQProducer.getProducerGroup().equals(MixAll.CLIENT_INNER_PRODUCER_GROUP)) {
                     this.defaultMQProducer.changeInstanceNameToPID();
                 }
-                // 创建mq客户端实例
+                // 创建MQClientInstance实例，jvm中只存在一个
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQProducer, rpcHook);
 
                 // mq客户端实例存储到本地缓存producerTable中，group - instance
@@ -542,7 +542,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         long beginTimestampFirst = System.currentTimeMillis();
         long beginTimestampPrev = beginTimestampFirst;
         long endTimestamp = beginTimestampFirst;
-        // 获取该队列的路由信息，路由不存在时，抛出异常
+        // 获取该队列的路由信息并且缓存到本地，路由不存在时，抛出异常
         TopicPublishInfo topicPublishInfo = this.tryToFindTopicPublishInfo(msg.getTopic());
         if (topicPublishInfo != null && topicPublishInfo.ok()) {
             boolean callTimeout = false;
@@ -692,7 +692,9 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     private TopicPublishInfo tryToFindTopicPublishInfo(final String topic) {
         TopicPublishInfo topicPublishInfo = this.topicPublishInfoTable.get(topic);
         if (null == topicPublishInfo || !topicPublishInfo.ok()) {
+            // 创建该topic对应的路由信息，放入到缓存中，此时对应的对象中不存在数据
             this.topicPublishInfoTable.putIfAbsent(topic, new TopicPublishInfo());
+            // 尝试从NameServer拉去topic对应的路由信息，并且放入到本地缓存中
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(topic);
             topicPublishInfo = this.topicPublishInfoTable.get(topic);
         }
@@ -700,6 +702,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         if (topicPublishInfo.isHaveTopicRouterInfo() || topicPublishInfo.ok()) {
             return topicPublishInfo;
         } else {
+            // 更新路由信息，此时存储的为之前加载的
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(topic, true, this.defaultMQProducer);
             topicPublishInfo = this.topicPublishInfoTable.get(topic);
             return topicPublishInfo;
@@ -722,6 +725,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
         SendMessageContext context = null;
         if (brokerAddr != null) {
+            // 判断是否开启vip通道，如果开启，则将端口减少2，改为10909，走fastRemotingServer进行netty通信，默认为false
             brokerAddr = MixAll.brokerVIPChannel(this.defaultMQProducer.isSendMessageWithVIPChannel(), brokerAddr);
 
             byte[] prevBody = msg.getBody();

@@ -81,6 +81,7 @@ public class NamesrvStartup {
         }
 
         final NamesrvConfig namesrvConfig = new NamesrvConfig();
+        // 设置netty的监听端口为9876
         final NettyServerConfig nettyServerConfig = new NettyServerConfig();
         nettyServerConfig.setListenPort(9876);
         if (commandLine.hasOption('c')) {
@@ -152,7 +153,7 @@ public class NamesrvStartup {
                 return null;
             }
         }));
-
+        // NameServer服务启动，netty开启监听
         controller.start();
 
         return controller;
