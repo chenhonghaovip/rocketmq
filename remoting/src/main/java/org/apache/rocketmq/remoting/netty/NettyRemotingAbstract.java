@@ -145,11 +145,11 @@ public abstract class NettyRemotingAbstract {
         if (cmd != null) {
             // 判断命令类型，是请求还是响应
             switch (cmd.getType()) {
-                // 如果是服务端主动发起的请求
+                // 如果是请求命令
                 case REQUEST_COMMAND:
                     processRequestCommand(ctx, cmd);
                     break;
-                    // 如果是收到服务端的响应
+                // 如果是收到服务端的响应
                 case RESPONSE_COMMAND:
                     processResponseCommand(ctx, cmd);
                     break;

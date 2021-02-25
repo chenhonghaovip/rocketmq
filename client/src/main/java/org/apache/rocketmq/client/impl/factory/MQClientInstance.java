@@ -208,13 +208,24 @@ public class MQClientInstance {
                     if (null == this.clientConfig.getNamesrvAddr()) {
                         this.mQClientAPIImpl.fetchNameServerAddr();
                     }
+
                     // Start request-response channel
+                    // 启动一个nettyClient跟broker交互。
                     this.mQClientAPIImpl.start();
+
                     // Start various schedule tasks
+                    // 启动定时任务，包括定时获取namesrv地址、定时从NameServer更新topic路由信息、定时持久化消费的偏移量等
                     this.startScheduledTask();
-                    // Start pull service
+
+                    /**
+                     * Start pull service
+                     * 启动长轮询，开启进行消息的拉取服务
+                     * {@link PullMessageService#run()}.
+                     */
                     this.pullMessageService.start();
+
                     // Start rebalance service
+                    // 启动负载均衡
                     this.rebalanceService.start();
                     // Start push service
                     this.defaultMQProducer.getDefaultMQProducerImpl().start(false);
@@ -230,6 +241,7 @@ public class MQClientInstance {
     }
 
     private void startScheduledTask() {
+        // 如果没有在本地配置NameServer信息，定时获取
         if (null == this.clientConfig.getNamesrvAddr()) {
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
@@ -244,6 +256,7 @@ public class MQClientInstance {
             }, 1000 * 10, 1000 * 60 * 2, TimeUnit.MILLISECONDS);
         }
 
+        // 定时从NameServer更新topic路由信息
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -256,6 +269,7 @@ public class MQClientInstance {
             }
         }, 10, this.clientConfig.getPollNameServerInterval(), TimeUnit.MILLISECONDS);
 
+        // 定时清理下线的broker,定时向broker发送心跳请求
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -269,6 +283,7 @@ public class MQClientInstance {
             }
         }, 1000, this.clientConfig.getHeartbeatBrokerInterval(), TimeUnit.MILLISECONDS);
 
+        // 定时持久化消费的偏移量
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
